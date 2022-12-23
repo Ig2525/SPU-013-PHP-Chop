@@ -1,34 +1,43 @@
 <?php
-if($_SERVER["REQUEST_METHOD"]=="POST")
-    {
-        echo "POST REQUEST SERVER";
-        $name=$_POST['name'];
-        $price=$_POST['price'];
-        $description=$_POST['description'];
-        $image=$_FILES['image']['tmp_name'];
-        print_r([$name,$price,$description, $image]);
-        $dir_save='images/'; //папка де будуть зберігатись фото
-        $image_name = uniqid().'.jpg';
-        $uploadfile = $dir_save.$image_name;
-        if(move_uploaded_file($image, $uploadfile))
-        {
-            echo "Файл успішно додано";
-            include_once($_SERVER['DOCUMENT_ROOT'].'/options/connection_database.php');
-            $sql = 'INSERT INTO tbl_products (name, image, price, datecreate, description) VALUES (:name, :image, :price, NOW(), :description);';
-            $stmt=$dbh->prepare($sql);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':price', $price);
-            $stmt->bindParam(':description', $description);
-            $stmt->bindParam(':image', $image_name);
-            $stmt->execute();
-            header("Location: /");
-        }
-        else
-        {
-            echo "Помилка додавання файлу";
-        }
-        exit();
+if ($_SERVER["REQUEST_METHOD"] == "POST")
+{
+    echo "POST REQUEST SERVER";
+    $name = $_POST['name'];
+    $price = $_POST['price'];
+    $description = $_POST['description'];
+    include_once($_SERVER['DOCUMENT_ROOT'] . '/options/connection_database.php');
+    $sql = 'INSERT INTO tbl_products (name, price, datecreate, description) VALUES (:name, :price, NOW(), :description);';
+    $stmt = $dbh->prepare($sql);
+    $stmt->bindParam(':name', $name);
+    $stmt->bindParam(':price', $price);
+    $stmt->bindParam(':description', $description);
+    $stmt->execute();
+
+    $sql = "SELECT LAST_INSERT_ID() as id;";
+    $item = $dbh->query($sql)->fetch();
+    $insert_id = $item['id'];
+
+    $images = $_POST['images'];
+    $count = 1;
+    foreach ($images as $base64) {
+        $dir_save = 'images/';
+        $image_name = uniqid() . '.jpeg';
+        $uploadfile = $dir_save . $image_name;
+        list(, $data) = explode(',', $base64);
+        $data = base64_decode($data);
+        file_put_contents($uploadfile, $data);
+        $sql = 'INSERT INTO tbl_product_images (name, datecreate, priority, product_id) VALUES(:name, NOW(), :priority, :product_id);';
+        $stmt = $dbh->prepare($sql);
+        $stmt->bindParam(':name', $image_name);
+        $stmt->bindParam(':priority', $count);
+        $stmt->bindParam(':product_id', $insert_id);
+        $stmt->execute();
+        $count++;
     }
+    header("Location: /");
+    exit();
+}
+
 ?>
 <!doctype html>
 <html lang="en">
